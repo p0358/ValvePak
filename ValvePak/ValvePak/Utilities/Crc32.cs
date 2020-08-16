@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SteamDatabase.ValvePak
+namespace ValvePak
 {
     /// <summary>
     /// A utility class to compute CRC32.

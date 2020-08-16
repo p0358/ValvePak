@@ -38,12 +38,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ArchiveMD5SectionEntry.cs" />
+    <Compile Include="PackageEntryParts.cs" />
+    <Compile Include="PackageEntry_org.cs" />
     <Compile Include="Utilities\AsnKeyParser.cs" />
     <Compile Include="Utilities\Crc32.cs" />
     <Compile Include="Package.cs" />
     <Compile Include="PackageEntry.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\StreamHelpers.cs" />
+    <Compile Include="VPKLocalisation.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

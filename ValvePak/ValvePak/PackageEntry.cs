@@ -1,74 +1,102 @@
 ﻿using System;
+using System.Collections.Generic;
 
-namespace SteamDatabase.ValvePak
+namespace ValvePak
 {
     public class PackageEntry
     {
-        /// <summary>
-        /// Gets or sets file name of this entry.
-        /// </summary>
+
         public string FileName { get; set; }
-
-        /// <summary>
-        /// Gets or sets the name of the directory this file is in.
-        /// '/' is always used as a dictionary separator in Valve's implementation.
-        /// Directory names are also always lower cased in Valve's implementation.
-        /// </summary>
         public string DirectoryName { get; set; }
-
-        /// <summary>
-        /// Gets or sets the file extension.
-        /// If the file has no extension, this is an empty string.
-        /// </summary>
         public string TypeName { get; set; }
 
-        /// <summary>
-        /// Gets or sets the CRC32 checksum of this entry.
-        /// </summary>
         public uint CRC32 { get; set; }
+        public byte[] SmallData { get; set; } // PreloadBytes
 
-        /// <summary>
-        /// Gets or sets the length in bytes.
-        /// </summary>
-        public uint Length { get; set; }
+        //private List<PackageEntryParts> parts; /*internal*/
+        public List<PackageEntryParts> Parts { get; set; }
+        //public parts = new List<PackageEntryParts>();
+        /*public ushort ArchiveIndex { get; set; }
+        public ushort Unknown1 { get; set; }
+        public uint Unknown2 { get; set; }
+        public ulong Offset { get; set; }
+        public ulong Length { get; set; }
+        public ulong OriginalLength { get; set; }*/
 
-        /// <summary>
-        /// Gets or sets the offset in the package.
-        /// </summary>
-        public uint Offset { get; set; }
-
-        /// <summary>
-        /// Gets or sets which archive this entry is in.
-        /// </summary>
-        public ushort ArchiveIndex { get; set; }
-
-        /// <summary>
-        /// Gets the length in bytes by adding Length and length of SmallData.
-        /// </summary>
-        public uint TotalLength
+        public ulong Length
         {
             get
             {
-                var totalLength = Length;
-
-                if (SmallData != null)
+                ulong totalLength = /*Length*/0;
+                foreach (var part in this.Parts)
                 {
-                    totalLength += (uint)SmallData.Length;
+                    totalLength += part.Length;
                 }
 
                 return totalLength;
             }
         }
 
-        /// <summary>
-        /// Gets or sets the preloaded bytes.
-        /// </summary>
-        public byte[] SmallData { get; set; }
+        public ulong OriginalLength
+        {
+            get
+            {
+                ulong totalLength = /*OriginalLength*/0;
+                foreach (var part in this.Parts)
+                {
+                    totalLength += part.OriginalLength;
+                }
 
-        /// <summary>
-        /// Returns the file name and extension.
-        /// </summary>
-        /// <returns>File name and extension.</returns>
+                return totalLength;
+            }
+        }
+
+        public /*uint*/ulong TotalLength
+        {
+            get
+            {
+                ulong totalLength = /*Length*/0;
+                foreach (var part in this.Parts)
+                {
+                    totalLength += part.Length;
+                }
+
+                if (SmallData != null)
+                {
+                    totalLength += /*(uint)*/(ulong)SmallData.Length;
+                }
+
+                return totalLength;
+            }
+        }
+
+        public /*uint*/ulong TotalOriginalLength
+        {
+            get
+            {
+                ulong totalLength = /*OriginalLength*/0;
+                foreach (var part in this.Parts)
+                {
+                    totalLength += part.OriginalLength;
+                }
+
+                if (SmallData != null)
+                {
+                    totalLength += /*(uint)*/(ulong)SmallData.Length;
+                }
+
+                return totalLength;
+            }
+        }
+
+        public /*uint*/int NumberOfParts
+        {
+            get
+            {
+                return this.Parts.Count;
+            }
+        }
+
         public string GetFileName()
         {
             var fileName = FileName;
@@ -81,10 +109,6 @@ namespace SteamDatabase.ValvePak
             return fileName;
         }
 
-        /// <summary>
-        /// Returns the absolute path of the file in the package.
-        /// </summary>
-        /// <returns>Absolute path.</returns>
         public string GetFullPath()
         {
             if (DirectoryName == null)
@@ -97,7 +121,19 @@ namespace SteamDatabase.ValvePak
 
         public override string ToString()
         {
-            return $"{GetFullPath()} crc=0x{CRC32:x2} metadatasz={SmallData.Length} fnumber={ArchiveIndex} ofs=0x{Offset:x2} sz={Length}";
+            //return $"{GetFullPath()} crc=0x{CRC32:x2} metadatasz={SmallData.Length} fnumber={ArchiveIndex} ofs=0x{Offset:x2} sz={Length}";
+            return $"{GetFullPath()} crc=0x{CRC32:x2} metadatasz={SmallData.Length} szpacked={Length} szoriginal={OriginalLength} numberofparts={NumberOfParts}";
         }
+
+        public PackageEntry()
+        {
+            this.Parts = new List<PackageEntryParts>();
+        }
+
+        /*public AddPart(PackageEntryParts part)
+        {
+            this.Parts.Add(part);
+        }*/
     }
+
 }

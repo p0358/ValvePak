@@ -39,7 +39,7 @@ using System.Security.Cryptography;
 using System.Security.Permissions;
 using System.Text;
 
-namespace SteamDatabase.ValvePak
+namespace ValvePak
 {
     [Serializable]
     internal sealed class BerDecodeException : Exception

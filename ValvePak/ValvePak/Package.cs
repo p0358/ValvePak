@@ -31,7 +31,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SteamDatabase.ValvePak
+//[SuppressMessage("StyleCop.CSharp.LayoutRules", "SA1503:BracesMustNotBeOmitted", Justification = "Oh fuck off.")]
+
+namespace ValvePak
 {
     public class Package : IDisposable
     {
@@ -45,11 +47,13 @@ namespace SteamDatabase.ValvePak
         private BinaryReader Reader;
         private bool IsDirVPK;
         private uint HeaderSize;
+        public VPKLocalization VPKLocale { get; private set; }
 
         /// <summary>
         /// Gets the File Name
         /// </summary>
         public string FileName { get; private set; }
+        public string FileNameUniversal { get; private set; } // no locale, eg. "client" instead of "englishclient"
 
         /// <summary>
         /// Gets the VPK version.
@@ -59,7 +63,8 @@ namespace SteamDatabase.ValvePak
         /// <summary>
         /// Gets the size in bytes of the directory tree.
         /// </summary>
-        public uint TreeSize { get; private set; }
+        public ulong TreeSize { get; private set; }
+        //public uint HeaderUnknownInt3 { get; private set; }
 
         /// <summary>
         /// Gets how many bytes of file content are stored in this VPK file (0 in CSGO).
@@ -140,6 +145,7 @@ namespace SteamDatabase.ValvePak
         /// <param name="fileName">Filename.</param>
         public void SetFileName(string fileName)
         {
+
             if (fileName.EndsWith(".vpk", StringComparison.Ordinal))
             {
                 fileName = fileName.Substring(0, fileName.Length - 4);
@@ -150,6 +156,71 @@ namespace SteamDatabase.ValvePak
                 IsDirVPK = true;
 
                 fileName = fileName.Substring(0, fileName.Length - 4);
+            }
+
+            var fileNameAlone = Path.GetFileName(fileName);
+            var filePath = fileName.Substring(0, fileName.Length - fileNameAlone.Length);
+
+            if (fileNameAlone.StartsWith("english", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.english;
+                FileNameUniversal = filePath + fileNameAlone.Substring(7, fileNameAlone.Length - 7);
+            }
+            else if (fileNameAlone.StartsWith("french", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.french;
+                FileNameUniversal = filePath + fileNameAlone.Substring(6, fileNameAlone.Length - 6);
+            }
+            else if (fileNameAlone.StartsWith("german", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.german;
+                FileNameUniversal = filePath + fileNameAlone.Substring(6, fileNameAlone.Length - 6);
+            }
+            else if (fileNameAlone.StartsWith("italian", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.italian;
+                FileNameUniversal = filePath + fileNameAlone.Substring(7, fileNameAlone.Length - 7);
+            }
+            else if (fileNameAlone.StartsWith("japanese", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.japanese;
+                FileNameUniversal = filePath + fileNameAlone.Substring(8, fileNameAlone.Length - 8);
+            }
+            else if (fileNameAlone.StartsWith("korean", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.korean;
+                FileNameUniversal = filePath + fileNameAlone.Substring(6, fileNameAlone.Length - 6);
+            }
+            else if (fileNameAlone.StartsWith("polish"))
+            {
+                VPKLocale = VPKLocalization.polish;
+                FileNameUniversal = filePath + fileNameAlone.Substring(6, fileNameAlone.Length - 6);
+            }
+            else if (fileNameAlone.StartsWith("portuguese", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.portuguese;
+                FileNameUniversal = filePath + fileNameAlone.Substring(10, fileNameAlone.Length - 10);
+            }
+            else if (fileNameAlone.StartsWith("russian", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.russian;
+                FileNameUniversal = filePath + fileNameAlone.Substring(7, fileNameAlone.Length - 7);
+            }
+            else if (fileNameAlone.StartsWith("spanish", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.spanish;
+                FileNameUniversal = filePath + fileNameAlone.Substring(7, fileNameAlone.Length - 7);
+            }
+            else if (fileNameAlone.StartsWith("tchinese", StringComparison.Ordinal))
+            {
+                VPKLocale = VPKLocalization.tchinese;
+                FileNameUniversal = filePath + fileNameAlone.Substring(8, fileNameAlone.Length - 8);
+            }
+            else
+            {
+                VPKLocale = VPKLocalization.unknown;
+                FileNameUniversal = fileName;
+                //throw new Exception("Wrong: " + fileName);
             }
 
             FileName = fileName;
@@ -188,7 +259,10 @@ namespace SteamDatabase.ValvePak
             }
 
             Version = Reader.ReadUInt32();
-            TreeSize = Reader.ReadUInt32();
+            if (Version == 196610)
+                TreeSize = Reader.ReadUInt64();
+            else
+                TreeSize = Reader.ReadUInt32();
 
             if (Version == 1)
             {
@@ -200,6 +274,10 @@ namespace SteamDatabase.ValvePak
                 ArchiveMD5SectionSize = Reader.ReadUInt32();
                 OtherMD5SectionSize = Reader.ReadUInt32();
                 SignatureSectionSize = Reader.ReadUInt32();
+            }
+            else if (Version == 196610)
+            {
+                //HeaderUnknownInt3 = Reader.ReadUInt32();
             }
             else
             {
@@ -284,7 +362,8 @@ namespace SteamDatabase.ValvePak
         /// <param name="validateCrc">If true, CRC32 will be calculated and verified for read data.</param>
         public void ReadEntry(PackageEntry entry, out byte[] output, bool validateCrc = true)
         {
-            output = new byte[entry.SmallData.Length + entry.Length];
+            //output = new byte[entry.SmallData.Length + (uint)entry.Length];
+            output = new byte[/*(ulong)entry.SmallData.Length + entry.Length*/entry.TotalLength];
 
             if (entry.SmallData.Length > 0)
             {
@@ -294,35 +373,59 @@ namespace SteamDatabase.ValvePak
             if (entry.Length > 0)
             {
                 Stream fs = null;
+                PackageEntryParts firstPart = null;
+                var fileName = String.Empty;
+                var newFileName = String.Empty;
+                int readOffset = /*entry.SmallData.Length*/0;
 
                 try
                 {
-                    var offset = entry.Offset;
+                    //ulong offset/* = entry.Offset*/;
+                    firstPart = entry.Parts[0];
 
-                    if (entry.ArchiveIndex != 0x7FFF)
+                    if (firstPart.ArchiveIndex != 0x7FFF)
                     {
                         if (!IsDirVPK)
                         {
                             throw new InvalidOperationException("Given VPK is not a _dir, but entry is referencing an external archive.");
                         }
 
-                        var fileName = $"{FileName}_{entry.ArchiveIndex:D3}.vpk";
+                        foreach (var part in entry.Parts)
+                        {
 
-                        fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                            newFileName = $"{FileNameUniversal}_{part.ArchiveIndex:D3}.vpk";
+                            if (newFileName != fileName)
+                            {
+                                fileName = newFileName;
+                                fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                            }
+
+                            fs.Seek((long)part.Offset, SeekOrigin.Begin);
+                            fs.Read(output, readOffset, (int)part.Length);
+
+                            readOffset += (int)part.Length;
+
+                        }
+
                     }
                     else
                     {
+
+                        ulong offset = firstPart.Offset;
+
                         fs = Reader.BaseStream;
 
                         offset += HeaderSize + TreeSize;
-                    }
 
-                    fs.Seek(offset, SeekOrigin.Begin);
-                    fs.Read(output, entry.SmallData.Length, (int)entry.Length);
+                        fs.Seek((long)offset, SeekOrigin.Begin);
+                        fs.Read(output, entry.SmallData.Length, (int)entry.Length);
+
+                    }
+                    
                 }
                 finally
                 {
-                    if (entry.ArchiveIndex != 0x7FFF)
+                    if (firstPart != null && firstPart?.ArchiveIndex != 0x7FFF)
                     {
                         fs?.Close();
                     }
@@ -385,22 +488,42 @@ namespace SteamDatabase.ValvePak
                             break;
                         }
 
-                        var entry = new PackageEntry
+                        var entry = new PackageEntry()
                         {
                             FileName = fileName,
                             DirectoryName = directoryName,
                             TypeName = typeName,
                             CRC32 = Reader.ReadUInt32(),
-                            SmallData = new byte[Reader.ReadUInt16()],
-                            ArchiveIndex = Reader.ReadUInt16(),
-                            Offset = Reader.ReadUInt32(),
-                            Length = Reader.ReadUInt32()
+                            SmallData = new byte[Reader.ReadUInt16()]
                         };
 
-                        if (Reader.ReadUInt16() != 0xFFFF)
+                        var keepReadingParts = true;
+                        ushort tempUInt16;
+                        do
                         {
-                            throw new FormatException("Invalid terminator.");
-                        }
+                            tempUInt16 = Reader.ReadUInt16();
+                            if (tempUInt16 != 0xFFFF)
+                            {
+                                entry.Parts.Add(new PackageEntryParts
+                                {
+                                    ArchiveIndex = /*Reader.ReadUInt16()*/tempUInt16,
+                                    Unknown1 = Reader.ReadUInt16(),
+                                    Unknown2 = Reader.ReadUInt32(),
+                                    Offset = Reader.ReadUInt64(),
+                                    Length = Reader.ReadUInt64(),
+                                    OriginalLength = Reader.ReadUInt64()
+                                });
+                            }
+                            else
+                            {
+                                keepReadingParts = false;
+                            }
+                        } while (keepReadingParts);
+
+                        /*if (Reader.ReadUInt16() != 0xFFFF)
+                        {
+                            throw new FormatException("Invalid terminator.\n\n" + fileName + "\n" + directoryName + "\n" + typeName);
+                        }*/
 
                         if (entry.SmallData.Length > 0)
                         {
@@ -447,7 +570,7 @@ namespace SteamDatabase.ValvePak
                     throw new InvalidDataException($"File tree checksum mismatch ({BitConverter.ToString(hash)} != expected {BitConverter.ToString(TreeChecksum)})");
                 }
 
-                Reader.BaseStream.Position = HeaderSize + TreeSize + FileDataSectionSize;
+                Reader.BaseStream.Position = (long)(HeaderSize + TreeSize + FileDataSectionSize);
 
                 hash = md5.ComputeHash(Reader.ReadBytes((int)ArchiveMD5SectionSize));
 
